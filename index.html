@@ -1,0 +1,275 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, type ReactNode } from "react";
+import { Menu, X, Phone, Share2, WifiOff, Wifi, ChevronDown, Home, Hospital, Building2, AlertTriangle } from "lucide-react";
+import { FloodMap } from "@/components/fs/FloodMap";
+import { INITIAL_RAINFALL, riskIndex, riskLabel, segmentsToWatch, rainfallDescription, neighbourhoods, type Risk } from "@/lib/flood";
+
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "FloodSense Assam — Make the next move safer" },
+      { name: "description", content: "Demo of neighbourhood flood awareness and safer-route comparison for Hatigaon, Rukminigaon and Anil Nagar, Guwahati. Simulated data only." },
+      { property: "og:title", content: "FloodSense Assam — Make the next move safer" },
+      { property: "og:description", content: "Neighbourhood flood awareness and route comparison demo for Guwahati. Simulated data only." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: Index,
+});
+
+const NAV = [["map", "Map"], ["forecast", "Forecast"], ["routes", "Routes"], ["emergency", "Emergency"], ["how", "How it works"]] as const;
+const RISK_BG: Record<Risk | "Elevated", string> = { Higher: "bg-risk-high", Elevated: "bg-risk-high", Watch: "bg-risk-watch", Lower: "bg-risk-low" };
+
+function Pill({ r }: { r: Risk | "Elevated" }) {
+  return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold text-foreground ${RISK_BG[r]}`}>{r}</span>;
+}
+function Tag({ children }: { children: ReactNode }) {
+  return <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{children}</p>;
+}
+function Section({ id, tag, title, children, intro }: { id: string; tag: string; title: string; intro?: string; children: ReactNode }) {
+  return (
+    <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-28 py-14 sm:py-20">
+      <div className="mx-auto max-w-5xl px-5">
+        <Tag>{tag}</Tag>
+        <h2 id={`${id}-h`} className="mt-2 font-display text-3xl font-semibold sm:text-4xl">{title}</h2>
+        {intro && <p className="mt-3 max-w-2xl text-muted-foreground">{intro}</p>}
+        <div className="mt-8">{children}</div>
+      </div>
+    </section>
+  );
+}
+const Note = ({ children }: { children: ReactNode }) => <p className="mt-4 text-sm text-muted-foreground">{children}</p>;
+const btn = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-5 font-semibold transition";
+
+function Header() {
+  const [open, setOpen] = useState(false);
+  return (
+    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
+      <p className="bg-foreground px-4 py-2 text-center text-xs font-semibold tracking-wide text-background">PROTOTYPE DEMO · Simulated data · No live alerts or integrations</p>
+      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5">
+        <a href="#top" className="font-display text-lg font-semibold">FloodSense <span className="text-primary">Assam</span></a>
+        <nav aria-label="Main" className="hidden md:block">
+          <ul className="flex gap-1">{NAV.map(([id, l]) => <li key={id}><a href={`#${id}`} className="rounded-md px-3 py-2 text-sm hover:bg-muted">{l}</a></li>)}</ul>
+        </nav>
+        <button className="grid h-11 w-11 place-items-center rounded-md border border-border md:hidden" aria-expanded={open} aria-controls="mnav" aria-label={open ? "Close menu" : "Open menu"} onClick={() => setOpen(!open)}>
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </div>
+      {open && (
+        <nav id="mnav" aria-label="Mobile" className="border-t border-border md:hidden">
+          <ul className="p-2">{NAV.map(([id, l]) => <li key={id}><a href={`#${id}`} onClick={() => setOpen(false)} className="block rounded-md px-3 py-3 hover:bg-muted">{l}</a></li>)}</ul>
+        </nav>
+      )}
+    </header>
+  );
+}
+
+function Index() {
+  const [rain, setRain] = useState(INITIAL_RAINFALL);
+  const idx = riskIndex(rain);
+  return (
+    <div id="top" className="min-h-screen">
+      <Header />
+      <main>
+        <section className="mx-auto max-w-5xl px-5 py-16 sm:py-24">
+          <Tag>Guwahati, Assam</Tag>
+          <h1 className="mt-3 font-display text-5xl font-semibold leading-tight sm:text-6xl">Make the next move safer.</h1>
+          <p className="mt-5 max-w-2xl text-lg text-muted-foreground">FloodSense Assam brings together neighbourhood-level flood context, short-horizon rainfall scenarios and route comparisons — so people can understand possible risk and decide what to do next.</p>
+          <ul className="mt-6 flex flex-wrap gap-2 text-sm" aria-label="Study area">
+            {["Hatigaon", "Rukminigaon", "Anil Nagar"].map((n) => <li key={n} className="rounded-full border border-border bg-card px-3 py-1">{n}</li>)}
+          </ul>
+          <a href="#map" className={`${btn} mt-8 bg-primary text-primary-foreground hover:opacity-90`}>Explore the demo</a>
+        </section>
+
+        <div className="border-t border-border bg-card/50">
+          <Section id="map" tag="Neighbourhood map" title="Where water may gather" intro="Turn layers on and off, or zoom in. Shapes and zones are drawn for illustration only.">
+            <FloodMap />
+          </Section>
+        </div>
+
+        <Section id="summary" tag="Sample risk summary" title="A rainy afternoon">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-border bg-card p-5"><p className="text-sm text-muted-foreground">Simulated rainfall</p><p className="mt-1 font-display text-4xl font-semibold">{rain} mm <span className="text-lg text-muted-foreground">/ 3 hrs</span></p></div>
+            <div className="rounded-2xl border border-border bg-card p-5"><p className="text-sm text-muted-foreground">Sample area risk index</p><p className="mt-1 font-display text-4xl font-semibold">{idx} <span className="text-lg text-muted-foreground">/ 100</span></p></div>
+          </div>
+          <ul className="mt-4 divide-y divide-border rounded-2xl border border-border bg-card" aria-live="polite">
+            {neighbourhoods(idx).map((n) => (
+              <li key={n.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4">
+                <span className="min-w-0"><span className="block font-semibold">{n.name}</span><span className="text-sm text-muted-foreground">{n.note}</span></span><Pill r={n.risk} />
+              </li>
+            ))}
+          </ul>
+          <Note>These are illustrative estimates, not live readings.</Note>
+        </Section>
+
+        <div className="border-y border-border bg-card/50">
+          <Section id="forecast" tag="Short-horizon scenarios" title="What the next few hours could look like">
+            <div className="grid gap-4 sm:grid-cols-3">
+              {([["30 minutes", "Localized pooling", "Water may collect at low corners and drain inlets.", "Watch"], ["1 hour", "More street impacts", "Low-lying lanes may become harder to cross.", "Elevated"], ["3 hours", "Conditions may ease", "If rain slows, water levels may gradually fall.", "Watch"]] as const).map(([t, h, d, r]) => (
+                <article key={t} className="rounded-2xl border border-border bg-card p-5">
+                  <div className="flex items-center justify-between"><p className="text-sm text-muted-foreground">{t}</p><Pill r={r} /></div>
+                  <h3 className="mt-3 text-lg font-semibold">{h}</h3><p className="mt-1 text-sm text-muted-foreground">{d}</p>
+                </article>
+              ))}
+            </div>
+            <Note>Sample scenarios. No live rainfall feed or forecasting model is connected.</Note>
+
+            <div className="mt-12 rounded-2xl border border-border bg-card p-5 sm:p-6">
+              <h3 className="text-xl font-semibold">What-if rainfall simulator</h3>
+              <label className="mt-5 block">
+                <span className="flex justify-between text-sm"><span>Simulated rainfall</span><span className="font-semibold">{rain} mm / 3 hrs</span></span>
+                <input type="range" min={0} max={90} step={1} value={rain} onChange={(e) => setRain(Number(e.target.value))} className="mt-3 h-8 w-full cursor-pointer accent-primary" aria-valuetext={`${rain} millimetres over 3 hours`} />
+                <span className="flex justify-between text-xs text-muted-foreground"><span>Light</span><span>Heavy</span></span>
+              </label>
+              <div className="mt-5 grid gap-4 sm:grid-cols-3" aria-live="polite">
+                <div><p className="text-sm text-muted-foreground">Risk index</p><p className="text-2xl font-semibold">{idx} / 100 <Pill r={riskLabel(idx)} /></p></div>
+                <div><p className="text-sm text-muted-foreground">Road segments to watch</p><p className="text-2xl font-semibold">{segmentsToWatch(idx)}</p></div>
+                <p className="text-sm sm:self-end">{rainfallDescription(rain)}</p>
+              </div>
+              <Note>Simple demo logic: the index rises steadily with rainfall. It is not a hydrological or prediction model.</Note>
+            </div>
+          </Section>
+        </div>
+
+        <Routes />
+        <Emergency />
+        <Offline idx={idx} />
+        <How />
+
+        <section className="border-t border-border bg-foreground py-16 text-background">
+          <div className="mx-auto max-w-3xl px-5 text-center">
+            <h2 className="font-display text-3xl font-semibold">Local flood context, closer to the next decision.</h2>
+            <p className="mt-3 opacity-80">FloodSense Assam explores how neighbourhood-level information could help people in Guwahati move more safely during heavy rain.</p>
+            <a href="#map" className={`${btn} mt-6 bg-background text-foreground hover:opacity-90`}>Back to the map</a>
+          </div>
+        </section>
+      </main>
+      <footer className="py-8 text-center text-sm text-muted-foreground">FloodSense Assam · Prototype demo with sample data only · Not a warning or safety service</footer>
+    </div>
+  );
+}
+
+function Routes() {
+  const [openR, setOpenR] = useState<string | null>(null);
+  const routes = [
+    { id: "low", name: "Lower-risk option", meta: "Sample: 18 min · small detour", color: "var(--primary)", detail: "Takes a short detour along higher ground and avoids 3 sample links marked for attention." },
+    { id: "direct", name: "Usual direct route", meta: "Sample: 14 min · shorter", color: "var(--risk-high)", detail: "Shorter, but crosses 3 sample links near the drainage line that are marked for attention." },
+  ];
+  return (
+    <Section id="routes" tag="Route comparison" title="Two ways to get there">
+      <div className="grid gap-6 md:grid-cols-[1.2fr_1fr]">
+        <svg viewBox="0 0 400 260" role="img" aria-label="Illustrative comparison of two routes" className="h-auto w-full rounded-2xl border border-border bg-muted">
+          <path d="M0,200 C120,180 260,230 400,200" stroke="var(--water)" strokeWidth="8" fill="none" opacity="0.7" />
+          <ellipse cx="200" cy="180" rx="80" ry="40" fill="var(--risk-high)" opacity="0.35" />
+          <path d="M60,150 L200,170 L340,140" stroke="var(--risk-high)" strokeWidth="5" fill="none" strokeDasharray="10 6" strokeLinecap="round" />
+          <path d="M60,150 L110,70 L290,60 L340,140" stroke="var(--primary)" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="60" cy="150" r="9" fill="var(--foreground)" /><text x="30" y="180" fontSize="12" fill="var(--foreground)">You are here</text>
+          <circle cx="340" cy="140" r="9" fill="var(--foreground)" /><text x="310" y="122" fontSize="12" fill="var(--foreground)">Destination</text>
+          <text x="10" y="250" fontSize="10" fill="var(--muted-foreground)">Illustrative · not for navigation</text>
+        </svg>
+        <div className="space-y-3">
+          {routes.map((r) => (
+            <div key={r.id} className="rounded-2xl border border-border bg-card">
+              <button onClick={() => setOpenR(openR === r.id ? null : r.id)} aria-expanded={openR === r.id} className="flex min-h-14 w-full items-center gap-3 p-4 text-left">
+                <span className="h-3 w-8 shrink-0 rounded-full" style={{ background: r.color }} />
+                <span className="min-w-0 flex-1"><span className="block font-semibold">{r.name}</span><span className="text-sm text-muted-foreground">{r.meta}</span></span>
+                <ChevronDown className={`h-5 w-5 shrink-0 transition ${openR === r.id ? "rotate-180" : ""}`} aria-hidden />
+              </button>
+              {openR === r.id && <p className="px-4 pb-4 text-sm text-muted-foreground">{r.detail}</p>}
+            </div>
+          ))}
+          <Note>Routes and travel times are invented for demonstration. This is not turn-by-turn guidance.</Note>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function Emergency() {
+  const [msg, setMsg] = useState("");
+  const share = async () => {
+    const text = "FloodSense demo: I may need help near Anil Nagar, Guwahati. (Sample message — no real location shared.)";
+    try {
+      if (navigator.share) { await navigator.share({ text }); setMsg("Sample message shared."); }
+      else { await navigator.clipboard.writeText(text); setMsg("Sample message copied. No location was accessed."); }
+    } catch { setMsg("Sharing was cancelled. No location was accessed."); }
+  };
+  return (
+    <section id="emergency" aria-labelledby="emergency-h" className="scroll-mt-28 bg-foreground py-14 text-background sm:py-20">
+      <div className="mx-auto max-w-5xl px-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-risk-watch">Emergency mode</p>
+        <h2 id="emergency-h" className="mt-2 font-display text-3xl font-semibold sm:text-4xl">When you need help now</h2>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <a href="tel:112" className={`${btn} min-h-14 bg-destructive text-lg text-destructive-foreground hover:opacity-90`}><Phone className="h-5 w-5" aria-hidden />Call 112 (India emergency)</a>
+          <button onClick={share} className={`${btn} min-h-14 border-2 border-background hover:bg-background/10`}><Share2 className="h-5 w-5" aria-hidden />Share my location (demo)</button>
+        </div>
+        <p role="status" className="mt-3 min-h-5 text-sm opacity-80">{msg}</p>
+        <ul className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[[Home, "Community shelter", "Sample listing"], [Hospital, "Hospital", "Sample listing"], [Building2, "Emergency-management resource", "Sample listing"]].map(([I, t, s]) => {
+            const Icon = I as typeof Home;
+            return <li key={t as string} className="rounded-xl border border-background/25 p-4"><Icon className="h-5 w-5" aria-hidden /><p className="mt-2 font-semibold">{t as string}</p><p className="text-sm opacity-70">{s as string} · details not verified</p></li>;
+          })}
+        </ul>
+        <p className="mt-6 flex gap-2 rounded-xl bg-background/10 p-4 text-sm"><AlertTriangle className="h-5 w-5 shrink-0 text-risk-watch" aria-hidden />This directory is illustrative. Details are not verified or connected, and this prototype does not contact emergency services.</p>
+      </div>
+    </section>
+  );
+}
+
+function Offline({ idx }: { idx: number }) {
+  const [off, setOff] = useState(false);
+  return (
+    <Section id="offline" tag="Offline-first thinking" title="Still useful when the signal drops">
+      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+          <p className="flex min-w-0 items-center gap-2 font-semibold" aria-live="polite">
+            {off ? <WifiOff className="h-5 w-5 shrink-0 text-risk-high" aria-hidden /> : <Wifi className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
+            {off ? "Offline demo — showing the last sample summary on screen" : "Connected demo state"}
+          </p>
+          <button onClick={() => setOff(!off)} aria-pressed={off} className={`${btn} border border-border hover:bg-muted`}>{off ? "Go back online" : "Simulate offline"}</button>
+        </div>
+        <ul className="mt-5 grid gap-2 sm:grid-cols-3">
+          {neighbourhoods(idx).map((n) => <li key={n.name} className="flex items-center justify-between rounded-lg bg-muted p-3 text-sm"><span>{n.name}</span><Pill r={n.risk} /></li>)}
+        </ul>
+        <Note>A simulation only. Your device's network settings are not changed and nothing is downloaded or synced.</Note>
+      </div>
+    </Section>
+  );
+}
+
+function How() {
+  return (
+    <div className="border-t border-border bg-card/50">
+      <Section id="how" tag="How it works" title="From local questions to safer choices">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[["Challenge", "Flood impacts can vary street by street. Broad city-level information may not answer local questions."], ["Concept", "Combine neighbourhood context, rainfall scenarios and road awareness in one experience."], ["Novelty", "Help people move from understanding possible risk to choosing their next action — with emergency access and offline-first thinking in view."]].map(([t, d]) => (
+            <article key={t} className="rounded-2xl border border-border bg-card p-5"><h3 className="text-lg font-semibold">{t}</h3><p className="mt-2 text-sm text-muted-foreground">{d}</p></article>
+          ))}
+        </div>
+        <ol className="mt-10 grid gap-3 sm:grid-cols-3">
+          {["Gather context", "Estimate local impacts", "Support safer choices"].map((s, i) => (
+            <li key={s} className="flex items-center gap-3 rounded-xl bg-muted p-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary font-semibold text-primary-foreground">{i + 1}</span><span className="font-semibold">{s}</span></li>
+          ))}
+        </ol>
+        <Note>A real deployment would need authoritative rainfall, terrain, drainage, road and local-resource data; field validation; and coordination with local experts and emergency services. None of these sources are integrated in this demo.</Note>
+
+        <h3 className="mt-14 font-display text-2xl font-semibold">Technology</h3>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Proposed future stack</p>
+            <ol className="mt-3 space-y-3 text-sm">
+              {[["Web experience", "React, TypeScript, Vite"], ["Interactive maps", "MapLibre and OpenStreetMap"], ["Geospatial analysis", "Python, GeoPandas, Rasterio"], ["Risk and routing", "Validated scenario models and graph routing"]].map(([a, b], i) => (
+                <li key={a} className="flex gap-3"><span className="font-semibold text-primary">{i + 1}.</span><span><span className="font-semibold">{a}</span> — {b}</span></li>
+              ))}
+            </ol>
+          </div>
+          <div className="rounded-2xl border border-primary/40 bg-accent p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">This demo</p>
+            <p className="mt-3 text-sm">Static local sample data and browser-only interactions. No APIs, live maps, databases, sign-in or analytics.</p>
+          </div>
+        </div>
+      </Section>
+    </div>
+  );
+}
